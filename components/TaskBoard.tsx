@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { SortDirection, SortField, Status, Task, Topic } from "@/app/lib/tasks";
+import { SortDirection, SortField, Status, Task, Topic } from "@/lib/tasks";
 import { SortBar } from "./SortBar";
 import { TaskCard } from "./TaskCard";
 import { TaskFormModal } from "./TaskFormModal";

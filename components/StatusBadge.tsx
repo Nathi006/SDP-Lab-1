@@ -1,4 +1,4 @@
-import { Status } from "@/app/lib/tasks";
+import { Status } from "@/lib/tasks";
 
 const STATUS_LABEL: Record<Status, string> = {
   todo: "Todo",

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Task, Topic } from "@/app/lib/tasks";
+import { Task, Topic } from "@/lib/tasks";
 
 interface Props {
   topics: Topic[];

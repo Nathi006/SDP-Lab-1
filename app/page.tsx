@@ -1,4 +1,4 @@
-import { TaskBoard } from "@/app/components/TaskBoard";
+import { TaskBoard } from "@/components/TaskBoard";
 
 export default function Home() {
   return <TaskBoard />;

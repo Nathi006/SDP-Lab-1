@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, listTasks, SortField, SortDirection } from "@/app/lib/tasks";
+import { createTask, listTasks, SortField, SortDirection } from "@/lib/tasks";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

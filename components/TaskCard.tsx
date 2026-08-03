@@ -1,6 +1,6 @@
 "use client";
 
-import { Status, Task } from "@/app/lib/tasks";
+import { Status, Task } from "@/lib/tasks";
 import { OverdueStamp, StatusBadge } from "./StatusBadge";
 
 interface Props {
@@ -27,7 +27,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onArchive, onUnarchive 
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="wrap-break-word  font-display text-lg font-bold leading-snug text-ink">
+          <h3 className="break-words font-display text-lg font-bold leading-snug text-ink">
             {task.title}
           </h3>
           <p className="mt-0.5 font-mono text-xs text-ink/60">{task.topic_name}</p>

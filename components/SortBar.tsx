@@ -1,6 +1,6 @@
 "use client";
 
-import { SortDirection, SortField } from "@/app/lib/tasks";
+import { SortDirection, SortField } from "@/lib/tasks";
 
 interface Props {
   sortField: SortField;

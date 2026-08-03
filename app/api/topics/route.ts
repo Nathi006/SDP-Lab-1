@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTopic, listTopics } from "@/app/lib/tasks";
+import { createTopic, listTopics } from "@/lib/tasks";
 
 export async function GET() {
   return NextResponse.json({ topics: listTopics() });

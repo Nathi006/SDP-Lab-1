@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { archiveTask, getTask, unarchiveTask, updateTask } from "@/app/lib/tasks";
+import { archiveTask, getTask, unarchiveTask, updateTask } from "@/lib/tasks";
 
 interface Params {
   params: { id: string };
