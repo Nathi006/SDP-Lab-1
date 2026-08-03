@@ -1,128 +1,185 @@
-import db from './db';
-import { Task, TaskWithComputed, Status } from './types';
+import { getDb } from "./db";
 
-interface TaskRow extends Task {
+export type Status = "todo" | "in_progress" | "complete";
+export const STATUSES: Status[] = ["todo", "in_progress", "complete"];
+
+export interface Topic {
+  id: number;
+  name: string;
+}
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  due_date: string;
+  topic_id: number;
   topic_name: string;
+  status: Status;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  is_overdue: 0 | 1;
 }
 
-function computeOverdue(row: TaskRow): TaskWithComputed {
-  const is_overdue =
-    row.status !== 'complete' &&
-    row.archived_at === null &&
-    row.due_date < new Date().toISOString().slice(0, 10);
-  return { ...row, is_overdue };
-}
+export type SortField = "due_date" | "topic" | "status";
+export type SortDirection = "asc" | "desc";
 
-type SortField = 'topic' | 'status' | 'due_date';
-
-const SORT_COLUMN: Record<SortField, string> = {
-  topic: 't.name',
-  status: 'tasks.status',
-  due_date: 'tasks.due_date',
+const STATUS_ORDER: Record<Status, number> = {
+  todo: 0,
+  in_progress: 1,
+  complete: 2,
 };
 
-export function getTasks(
-  sortBy: SortField = 'due_date',
-  includeArchived = false
-): TaskWithComputed[] {
-  const column = SORT_COLUMN[sortBy] ?? SORT_COLUMN.due_date;
-  const whereClause = includeArchived ? '' : 'WHERE tasks.archived_at IS NULL';
-
-  const rows = db
-    .prepare(
-      `SELECT tasks.*, t.name AS topic_name
-       FROM tasks
-       JOIN topics t ON t.id = tasks.topic_id
-       ${whereClause}
-       ORDER BY ${column} ASC`
-    )
-    .all() as TaskRow[];
-
-  return rows.map(computeOverdue);
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
-function getTaskById(id: number): TaskRow | undefined {
-  return db
-    .prepare(
-      `SELECT tasks.*, t.name AS topic_name
-       FROM tasks JOIN topics t ON t.id = tasks.topic_id
-       WHERE tasks.id = ?`
-    )
-    .get(id) as TaskRow | undefined;
+// --- Topics ---------------------------------------------------------------
+
+export function listTopics(): Topic[] {
+  const db = getDb();
+  return db.prepare("SELECT id, name FROM topics ORDER BY name ASC").all() as Topic[];
 }
 
-export function getOrCreateTopic(name: string): number {
-  const existing = db.prepare('SELECT id FROM topics WHERE name = ?').get(name) as
-    | { id: number }
+export function createTopic(name: string): Topic {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Topic name is required");
+  const db = getDb();
+  const existing = db.prepare("SELECT id, name FROM topics WHERE name = ?").get(trimmed) as
+    | Topic
     | undefined;
-  if (existing) return existing.id;
-
-  const result = db.prepare('INSERT INTO topics (name) VALUES (?)').run(name);
-  return result.lastInsertRowid as number;
+  if (existing) return existing;
+  const info = db.prepare("INSERT INTO topics (name) VALUES (?)").run(trimmed);
+  return { id: Number(info.lastInsertRowid), name: trimmed };
 }
 
-export function createTask(input: {
-  title: string;
-  description?: string;
-  due_date: string;
-  topic: string; // topic name from the form; resolved to topic_id here
-}): TaskWithComputed {
-  const topic_id = getOrCreateTopic(input.topic);
+// --- Tasks ------------------------------------------------------------------
 
-  const result = db
-    .prepare(
-      `INSERT INTO tasks (title, description, due_date, topic_id)
-       VALUES (@title, @description, @due_date, @topic_id)`
-    )
-    .run({
-      title: input.title,
-      description: input.description ?? null,
-      due_date: input.due_date,
-      topic_id,
+interface ListOptions {
+  sortField?: SortField;
+  sortDirection?: SortDirection;
+  includeArchived?: boolean;
+}
+
+const BASE_SELECT = `
+  SELECT
+    tasks.id, tasks.title, tasks.description, tasks.due_date, tasks.topic_id,
+    topics.name AS topic_name, tasks.status, tasks.archived_at,
+    tasks.created_at, tasks.updated_at,
+    CASE
+      WHEN tasks.status != 'complete'
+       AND tasks.archived_at IS NULL
+       AND tasks.due_date < date('now')
+      THEN 1 ELSE 0
+    END AS is_overdue
+  FROM tasks
+  JOIN topics ON topics.id = tasks.topic_id
+`;
+
+export function listTasks(opts: ListOptions = {}): Task[] {
+  const { sortField = "due_date", sortDirection = "asc", includeArchived = false } = opts;
+  const db = getDb();
+
+  const where = includeArchived ? "" : "WHERE tasks.archived_at IS NULL";
+
+  // Status has a fixed, non-alphabetical order (todo -> in_progress -> complete),
+  // so it's sorted in JS rather than with a plain SQL ORDER BY on the text column.
+  if (sortField === "status") {
+    const rows = db.prepare(`${BASE_SELECT} ${where}`).all() as Task[];
+    rows.sort((a, b) => {
+      const diff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      return sortDirection === "asc" ? diff : -diff;
     });
+    return rows;
+  }
 
-  return computeOverdue(getTaskById(result.lastInsertRowid as number)!);
+  const column = sortField === "topic" ? "topics.name" : "tasks.due_date";
+  const dir = sortDirection === "desc" ? "DESC" : "ASC";
+  return db.prepare(`${BASE_SELECT} ${where} ORDER BY ${column} ${dir}, tasks.id ASC`).all() as Task[];
 }
 
-export function updateTask(
-  id: number,
-  updates: Partial<{
-    title: string;
-    description: string;
-    due_date: string;
-    topic: string;
-    status: Status;
-  }>
-): TaskWithComputed | null {
-  const existing = getTaskById(id);
-  if (!existing) return null;
+export function getTask(id: number): Task | undefined {
+  const db = getDb();
+  return db.prepare(`${BASE_SELECT} WHERE tasks.id = ?`).get(id) as Task | undefined;
+}
 
-  const topic_id = updates.topic ? getOrCreateTopic(updates.topic) : existing.topic_id;
+export interface CreateTaskInput {
+  title: string;
+  description?: string | null;
+  due_date: string;
+  topic_id: number;
+}
 
+export function createTask(input: CreateTaskInput): Task {
+  if (!input.title?.trim()) throw new Error("Title is required");
+  if (!input.due_date?.trim()) throw new Error("Due date is required");
+  if (!input.topic_id) throw new Error("Topic is required");
+
+  const db = getDb();
+  const ts = nowIso();
+  const info = db
+    .prepare(
+      `INSERT INTO tasks (title, description, due_date, topic_id, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'todo', ?, ?)`
+    )
+    .run(input.title.trim(), input.description ?? null, input.due_date, input.topic_id, ts, ts);
+
+  return getTask(Number(info.lastInsertRowid))!;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string | null;
+  due_date?: string;
+  topic_id?: number;
+  status?: Status;
+}
+
+export function updateTask(id: number, input: UpdateTaskInput): Task {
+  const existing = getTask(id);
+  if (!existing) throw new Error("Task not found");
+
+  if (input.status && !STATUSES.includes(input.status)) {
+    throw new Error(`Invalid status: ${input.status}`);
+  }
+
+  const db = getDb();
   db.prepare(
-    `UPDATE tasks
-     SET title = ?, description = ?, due_date = ?, topic_id = ?, status = ?,
-         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    `UPDATE tasks SET
+       title = ?, description = ?, due_date = ?, topic_id = ?, status = ?, updated_at = ?
      WHERE id = ?`
   ).run(
-    updates.title ?? existing.title,
-    updates.description ?? existing.description,
-    updates.due_date ?? existing.due_date,
-    topic_id,
-    updates.status ?? existing.status,
+    input.title?.trim() ?? existing.title,
+    input.description !== undefined ? input.description : existing.description,
+    input.due_date ?? existing.due_date,
+    input.topic_id ?? existing.topic_id,
+    input.status ?? existing.status,
+    nowIso(),
     id
   );
 
-  return computeOverdue(getTaskById(id)!);
+  return getTask(id)!;
 }
 
-export function archiveTask(id: number): TaskWithComputed | null {
-  const existing = getTaskById(id);
-  if (!existing) return null;
+// Archiving flips a timestamp; the row is never deleted, so it stays
+// viewable via listTasks({ includeArchived: true }).
+export function archiveTask(id: number): Task {
+  const existing = getTask(id);
+  if (!existing) throw new Error("Task not found");
+  const db = getDb();
+  db.prepare("UPDATE tasks SET archived_at = ?, updated_at = ? WHERE id = ?").run(
+    nowIso(),
+    nowIso(),
+    id
+  );
+  return getTask(id)!;
+}
 
-  db.prepare(
-    `UPDATE tasks SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
-  ).run(id);
-
-  return computeOverdue(getTaskById(id)!);
+export function unarchiveTask(id: number): Task {
+  const existing = getTask(id);
+  if (!existing) throw new Error("Task not found");
+  const db = getDb();
+  db.prepare("UPDATE tasks SET archived_at = NULL, updated_at = ? WHERE id = ?").run(nowIso(), id);
+  return getTask(id)!;
 }
