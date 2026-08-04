@@ -126,7 +126,7 @@ export function TaskBoard() {
     <div className="mx-auto min-h-screen max-w-3xl px-3 pb-24 sm:px-6">
       <header className="brutal-panel mt-4 flex items-center justify-between bg-wa-teal px-4 py-4 sm:px-6">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">Tasks</h1>
+          <h1 className="font-display text-2xl font-bold text-green sm:text-3xl">Tasks</h1>
           <p className="font-mono text-xs text-wa-mint">local-first · runs on your machine</p>
         </div>
         <button
