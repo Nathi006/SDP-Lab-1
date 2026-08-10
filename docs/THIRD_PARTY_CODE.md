@@ -20,3 +20,5 @@ Libraries and packages installed for this project, and why each was chosen.
 | `@types/*` (`node`, `react`, `react-dom`, `better-sqlite3`) | Type definitions for the above packages, required for TypeScript to check code that calls into them. |
 
 No other runtime libraries (UI kits, state managers, date libraries, etc.) were added — the task list, sorting, and form state are small enough to manage with plain React state and the Fetch API.
+
+
