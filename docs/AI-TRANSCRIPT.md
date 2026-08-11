@@ -32,4 +32,6 @@ The main AI interactions during the project involved:
 4. **Technical Discussion**
    Claude Sonnet 5 was also used to discuss implementation choices and clarify how Next.js, SQLite, server-side code, and client-side components should interact.
 
+[Click to view Claude Conversation Transcript](https://claude.ai/share/3586cec5-2724-477a-9a9a-e7a60c91b698)
+
 The AI was used as an assistant rather than as a replacement for the development process. Final implementation decisions were made by the developer after reviewing and testing the suggestions.
